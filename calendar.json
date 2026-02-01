@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-02-01",
+    "price": 100,
+    "available_rooms": 3,
+    "min_nights": 1
+  },
+  {
+    "date": "2026-02-02",
+    "price": 100,
+    "available_rooms": 3,
+    "min_nights": 1
+  }
+]
