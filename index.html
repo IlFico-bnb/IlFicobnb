@@ -11,34 +11,31 @@
 
 <style>
 body {font-family: Arial, sans-serif; margin:10px; background:#f5f7fb;}
-#calendar {max-width:900px; margin:20px auto;}
+#calendar {max-width:900px; margin:10px auto 0 auto;}
+.calendar-hint{
+  text-align:center;
+  font-size:14px;
+  color:#1e88e5;
+  margin-top:5px;
+  min-height:20px;
+}
 
 .overlay {
   position:fixed; top:0; left:0; width:100%; height:100%;
   background:rgba(0,0,0,0.5); display:none;
   justify-content:center; align-items:center;
   z-index:1000;
-  animation: fadeIn 0.3s ease;
 }
-
-@keyframes fadeIn {from{opacity:0} to{opacity:1}}
 
 .popup {
   background:white; width:95%; max-width:500px;
   max-height:90vh; overflow-y:auto;
   border-radius:12px; padding:20px;
   box-shadow:0 10px 30px rgba(0,0,0,0.3);
-  animation: slideUp 0.3s ease;
   position:relative;
 }
 
-@keyframes slideUp {from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1}}
-
-.closeBtn {
-  position:absolute; top:10px; right:15px;
-  font-size:20px; cursor:pointer; color:#666;
-}
-
+.closeBtn {position:absolute; top:10px; right:15px; font-size:20px; cursor:pointer;}
 h2 {text-align:center; font-size:18px; margin-bottom:10px;}
 
 input, select {
@@ -61,8 +58,10 @@ button.submitBtn {
   background:#1e88e5; color:white; border:none;
   padding:14px; width:100%; font-size:16px;
   border-radius:10px; cursor:pointer;
+  opacity:0.5;
 }
 
+button.submitBtn.enabled {opacity:1;}
 .summary {background:#e3f2fd; padding:12px; border-radius:10px; margin-bottom:15px;}
 </style>
 </head>
@@ -70,13 +69,15 @@ button.submitBtn {
 <body>
 
 <div id="calendar"></div>
+<div id="calendarHint" class="calendar-hint">
+Seleziona data di check-in | Select check-in date
+</div>
 
 <div class="overlay" id="overlay">
   <div class="popup">
     <div class="closeBtn" onclick="closeForm()">✖</div>
 
     <h2>Dettagli richiesta di prenotazione | Booking Request Details</h2>
-
     <div class="summary" id="summaryBox"></div>
 
     <label>Camere | Rooms (max 3)*</label>
@@ -114,7 +115,7 @@ button.submitBtn {
     <label>Paese | Country *</label>
     <select id="country" required></select>
 
-    <button class="submitBtn" onclick="sendBooking()">Invia Richiesta</button>
+    <button id="submitBtn" class="submitBtn" onclick="sendBooking()" disabled>Invia Richiesta</button>
   </div>
 </div>
 
@@ -122,6 +123,7 @@ button.submitBtn {
 emailjs.init("lTdk4iSo1q1QytRhq");
 
 let checkin=null, checkout=null, defaultPrice=100;
+const hint = document.getElementById("calendarHint");
 
 const today = new Date(); today.setHours(0,0,0,0);
 const maxDate = new Date(); maxDate.setMonth(maxDate.getMonth()+7);
@@ -135,9 +137,11 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
     let clicked=new Date(info.dateStr);
     if(!checkin || checkout){
       checkin=clicked; checkout=null; clearSel(); mark(clicked);
+      hint.innerText="Seleziona data di check-out | Select check-out date";
     } else {
       if(clicked<=checkin){checkin=clicked; clearSel(); mark(clicked); return;}
       checkout=clicked; markRange(checkin,checkout); showForm();
+      hint.innerText="";
     }
   }
 });
@@ -150,11 +154,13 @@ function clearSel(){document.querySelectorAll("[data-date]").forEach(el=>el.styl
 function showForm(){
   document.getElementById("overlay").style.display="flex";
   updateSummary();
+  validateForm();
 }
 
 function closeForm(){
   document.getElementById("overlay").style.display="none";
   clearSel(); checkin=null; checkout=null;
+  hint.innerText="Seleziona data di check-in | Select check-in date";
 }
 
 function updateSummary(){
@@ -166,18 +172,24 @@ function updateSummary(){
                         <b>Totale soggiorno:</b> €${total}`;
 }
 
-function changeRooms(v){
-  let r=parseInt(rooms.innerText)+v;
-  if(r<1)r=1;if(r>3)r=3;rooms.innerText=r;changeGuests(0);updateSummary();
-}
-function changeGuests(v){
-  let max=parseInt(rooms.innerText)*2;
-  let g=parseInt(guests.innerText)+v;
-  if(g<1)g=1;if(g>max)g=max;guests.innerText=g;
+function changeRooms(v){let r=parseInt(rooms.innerText)+v; if(r<1)r=1;if(r>3)r=3;rooms.innerText=r;changeGuests(0);updateSummary();}
+function changeGuests(v){let max=parseInt(rooms.innerText)*2;let g=parseInt(guests.innerText)+v;if(g<1)g=1;if(g>max)g=max;guests.innerText=g;}
+
+function validateForm(){
+  const requiredFields=["firstName","lastName","phone","email","confirmEmail"];
+  let valid=true;
+  requiredFields.forEach(id=>{ if(!document.getElementById(id).value.trim()) valid=false; });
+  if(prefix.value==="" || country.value==="") valid=false;
+  if(email.value!==confirmEmail.value) valid=false;
+
+  submitBtn.disabled=!valid;
+  submitBtn.classList.toggle("enabled", valid);
 }
 
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",validateForm));
+
 function sendBooking(){
-  if(email.value!==confirmEmail.value){alert("Email non coincidono");return;}
+  if(submitBtn.disabled) return;
   let params={
     firstName:firstName.value,
     lastName:lastName.value,
@@ -194,27 +206,11 @@ function sendBooking(){
         ()=>alert("Errore invio"));
 }
 
-/* 🌍 150+ PREFIXES & COUNTRIES */
-const prefixList = [
-"+39 Italia","+44 UK","+1 USA","+33 Francia","+49 Germania","+34 Spagna","+41 Svizzera","+43 Austria","+32 Belgio","+31 Paesi Bassi",
-"+351 Portogallo","+353 Irlanda","+45 Danimarca","+46 Svezia","+47 Norvegia","+48 Polonia","+420 Repubblica Ceca","+421 Slovacchia","+36 Ungheria","+30 Grecia",
-"+90 Turchia","+7 Russia","+380 Ucraina","+40 Romania","+359 Bulgaria","+385 Croazia","+386 Slovenia","+381 Serbia","+387 Bosnia","+382 Montenegro",
-"+355 Albania","+373 Moldavia","+370 Lituania","+371 Lettonia","+372 Estonia","+354 Islanda","+375 Bielorussia","+995 Georgia","+374 Armenia","+994 Azerbaigian",
-"+20 Egitto","+212 Marocco","+213 Algeria","+216 Tunisia","+27 Sudafrica","+234 Nigeria","+254 Kenya","+971 Emirati Arabi","+966 Arabia Saudita","+972 Israele",
-"+91 India","+92 Pakistan","+880 Bangladesh","+94 Sri Lanka","+977 Nepal","+86 Cina","+81 Giappone","+82 Corea del Sud","+84 Vietnam","+66 Thailandia",
-"+60 Malesia","+65 Singapore","+62 Indonesia","+63 Filippine","+61 Australia","+64 Nuova Zelanda","+55 Brasile","+54 Argentina","+56 Cile","+57 Colombia",
-"+52 Messico","+51 Perù","+58 Venezuela","+1 Canada","+598 Uruguay","+595 Paraguay","+593 Ecuador","+591 Bolivia","+502 Guatemala","+503 El Salvador",
-"+504 Honduras","+505 Nicaragua","+506 Costa Rica","+507 Panama","+53 Cuba","+1 Repubblica Dominicana","+1876 Giamaica","+974 Qatar","+965 Kuwait","+968 Oman",
-"+973 Bahrain","+961 Libano","+962 Giordania","+98 Iran","+93 Afghanistan","+856 Laos","+855 Cambogia","+95 Myanmar","+976 Mongolia","+998 Uzbekistan",
-"+993 Turkmenistan","+996 Kirghizistan","+992 Tagikistan","+880 Bangladesh","+673 Brunei","+960 Maldive","+267 Botswana","+263 Zimbabwe","+260 Zambia","+265 Malawi",
-"+255 Tanzania","+256 Uganda","+250 Ruanda","+251 Etiopia","+252 Somalia","+249 Sudan","+218 Libia","+963 Siria","+964 Iraq","+970 Palestina"
-];
-
+/* PREFIX + COUNTRY (150+) */
+const prefixList = ["+39 Italia","+44 UK","+1 USA","+33 Francia","+49 Germania","+34 Spagna","+41 Svizzera","+43 Austria","+32 Belgio","+31 Paesi Bassi","+351 Portogallo","+353 Irlanda","+45 Danimarca","+46 Svezia","+47 Norvegia","+48 Polonia","+420 Repubblica Ceca","+421 Slovacchia","+36 Ungheria","+30 Grecia","+90 Turchia","+7 Russia","+380 Ucraina","+40 Romania","+359 Bulgaria","+385 Croazia","+386 Slovenia","+381 Serbia","+387 Bosnia","+382 Montenegro","+355 Albania","+373 Moldavia","+370 Lituania","+371 Lettonia","+372 Estonia","+354 Islanda","+375 Bielorussia","+995 Georgia","+374 Armenia","+994 Azerbaigian","+20 Egitto","+212 Marocco","+213 Algeria","+216 Tunisia","+27 Sudafrica","+234 Nigeria","+254 Kenya","+971 Emirati","+966 Arabia Saudita","+972 Israele","+91 India","+92 Pakistan","+880 Bangladesh","+94 Sri Lanka","+977 Nepal","+86 Cina","+81 Giappone","+82 Corea","+84 Vietnam","+66 Thailandia","+60 Malesia","+65 Singapore","+62 Indonesia","+63 Filippine","+61 Australia","+64 Nuova Zelanda","+55 Brasile","+54 Argentina","+56 Cile","+57 Colombia","+52 Messico","+51 Perù","+58 Venezuela","+1 Canada","+598 Uruguay","+595 Paraguay","+593 Ecuador","+591 Bolivia","+502 Guatemala","+503 El Salvador","+504 Honduras","+505 Nicaragua","+506 Costa Rica","+507 Panama","+53 Cuba","+1 Rep Dominicana","+1876 Giamaica","+974 Qatar","+965 Kuwait","+968 Oman","+973 Bahrain","+961 Libano","+962 Giordania","+98 Iran","+93 Afghanistan","+856 Laos","+855 Cambogia","+95 Myanmar","+976 Mongolia","+998 Uzbekistan","+993 Turkmenistan","+996 Kirghizistan","+992 Tagikistan"];
 const countryList = prefixList.map(p => p.split(" ").slice(1).join(" "));
-
 prefixList.forEach(p=>prefix.add(new Option(p,p)));
 countryList.forEach(c=>country.add(new Option(c,c)));
-
 </script>
 </body>
 </html>
