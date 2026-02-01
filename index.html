@@ -3,197 +3,186 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prenota | Book Now</title>
+<title>Richiesta Prenotazione | Booking Request</title>
 
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 
 <style>
-body {font-family: Arial, sans-serif; margin:20px; background:#f5f7fb;}
-h2 {text-align:center;}
+body {font-family: Arial, sans-serif; margin:10px; background:#f5f7fb;}
+h2 {text-align:center; font-size:20px;}
 #calendar {max-width:900px; margin:20px auto;}
-.fc-daygrid-day-number {font-weight:bold;}
-.price-tag {font-size:12px; color:#1e88e5;}
-.selected-range {background:#a5d6ff !important;}
-.today-past {background:#ffe0b2 !important;}
-#bookingForm {max-width:900px; margin:20px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1);}
-input, select {width:100%; padding:8px; margin-top:5px; margin-bottom:10px;}
+
+#bookingForm {
+  max-width:900px; margin:20px auto; background:white;
+  padding:20px; border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.15);
+  display:none; position:relative;
+  animation: fadeSlide 0.4s ease;
+}
+
+@keyframes fadeSlide {
+  from {opacity:0; transform:translateY(20px);}
+  to {opacity:1; transform:translateY(0);}
+}
+
+.closeBtn {
+  position:absolute; top:10px; right:15px;
+  font-size:20px; cursor:pointer; color:#888;
+}
+
+input, select {width:100%; padding:10px; margin-top:5px; margin-bottom:12px; border-radius:8px; border:1px solid #ccc;}
+
 label {font-weight:bold;}
-.row {display:flex; gap:10px;}
-button {background:#1e88e5; color:white; border:none; padding:12px; width:100%; font-size:16px; border-radius:8px; cursor:pointer;}
-button:hover {background:#1565c0;}
-.summary {background:#e3f2fd; padding:10px; border-radius:8px; margin-bottom:15px;}
-.highlight-date {font-weight:bold; color:#0d47a1;}
+
+.row {display:flex; align-items:center; gap:10px;}
+
+.circle-btn {
+  width:35px; height:35px; border-radius:50%;
+  border:none; background:#1e88e5; color:white;
+  font-size:18px; cursor:pointer;
+}
+
+.counter {
+  font-size:18px; font-weight:bold; min-width:30px; text-align:center;
+}
+
+button.submitBtn {
+  background:#1e88e5; color:white; border:none;
+  padding:14px; width:100%; font-size:16px;
+  border-radius:10px; cursor:pointer;
+}
+
+.summary {background:#e3f2fd; padding:12px; border-radius:10px; margin-bottom:15px;}
+
+@media (max-width:600px){
+  h2{font-size:18px;}
+}
 </style>
 </head>
 
 <body>
 
-<h2>Dettagli Prenotazione | Booking Details</h2>
+<h2>Dettagli richiesta di prenotazione | Booking Request Details</h2>
 <div id="calendar"></div>
 
-<div id="bookingForm" style="display:none;">
+<div id="bookingForm">
+  <div class="closeBtn" onclick="closeForm()">✖</div>
   <div class="summary" id="summaryBox"></div>
 
-  <label>Camere | Rooms (max 3)</label>
+  <label>Camere | Rooms (max 3)*</label>
   <div class="row">
-    <button type="button" onclick="changeRooms(-1)">-</button>
-    <input type="text" id="rooms" value="1" readonly>
-    <button type="button" onclick="changeRooms(1)">+</button>
+    <button class="circle-btn" type="button" onclick="changeRooms(-1)">−</button>
+    <div class="counter" id="rooms">1</div>
+    <button class="circle-btn" type="button" onclick="changeRooms(1)">+</button>
   </div>
 
-  <label>Ospiti | Guests (max 2 per camera)</label>
+  <label>Ospiti | Guests (max 2 per camera)*</label>
   <div class="row">
-    <button type="button" onclick="changeGuests(-1)">-</button>
-    <input type="text" id="guests" value="2" readonly>
-    <button type="button" onclick="changeGuests(1)">+</button>
+    <button class="circle-btn" type="button" onclick="changeGuests(-1)">−</button>
+    <div class="counter" id="guests">2</div>
+    <button class="circle-btn" type="button" onclick="changeGuests(1)">+</button>
   </div>
 
-  <div id="guestNames"></div>
+  <label>Nome *</label>
+  <input type="text" id="firstName" required>
 
-  <label>Telefono | Phone *</label>
+  <label>Cognome *</label>
+  <input type="text" id="lastName" required>
+
+  <label>Telefono *</label>
   <div class="row">
-    <select id="prefix">
-      <option value="+39 Italia">+39 Italia</option>
-      <option value="+44 UK">+44 UK</option>
-      <option value="+1 USA">+1 USA</option>
-      <option value="+33 Francia">+33 Francia</option>
-      <option value="+49 Germania">+49 Germania</option>
-    </select>
+    <select id="prefix" required></select>
     <input type="tel" id="phone" required>
   </div>
 
   <label>Email *</label>
   <input type="email" id="email" required>
 
-  <label>Conferma Email | Confirm Email *</label>
+  <label>Conferma Email *</label>
   <input type="email" id="confirmEmail" required>
 
   <label>Paese | Country *</label>
-  <select id="country" required>
-    <option>Italia</option><option>Germany</option><option>France</option><option>USA</option><option>UK</option>
-  </select>
+  <select id="country" required></select>
 
-  <button onclick="sendBooking()">Invia Richiesta</button>
+  <button class="submitBtn" onclick="sendBooking()">Invia Richiesta</button>
 </div>
 
 <script>
 emailjs.init("lTdk4iSo1q1QytRhq");
 
-let checkin=null, checkout=null, priceData={}, defaultPrice=100;
+let checkin=null, checkout=null, defaultPrice=100;
+
+const today = new Date(); today.setHours(0,0,0,0);
+const maxDate = new Date(); maxDate.setMonth(maxDate.getMonth()+7);
 
 const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-  initialView: 'dayGridMonth',
-  selectable:true,
+  initialView:'dayGridMonth',
   locale:'it',
+  selectable:true,
+  validRange:{ start: today, end: maxDate },
   dateClick(info){
-    let clicked = new Date(info.dateStr);
-    let today = new Date(); today.setHours(0,0,0,0);
-    if(clicked < today) return;
-
-    if(!checkin || (checkin && checkout)){
-      checkin = clicked;
-      checkout = null;
-      clearSelection();
-      highlightDate(clicked);
+    let clicked=new Date(info.dateStr);
+    if(!checkin || checkout){
+      checkin=clicked; checkout=null; clearSel(); mark(clicked);
     } else {
-      if(clicked <= checkin){ checkin = clicked; clearSelection(); highlightDate(clicked); return;}
-      checkout = clicked;
-      highlightRange(checkin, checkout);
-      showForm();
+      if(clicked<=checkin){checkin=clicked; clearSel(); mark(clicked); return;}
+      checkout=clicked; markRange(checkin,checkout); showForm();
     }
-  },
-  dayCellDidMount(info){
-    let today = new Date(); today.setHours(0,0,0,0);
-    if(info.date < today) info.el.classList.add("today-past");
-
-    let price = priceData[info.dateStr] || defaultPrice;
-    let tag = document.createElement("div");
-    tag.className="price-tag";
-    tag.innerText="€"+price;
-    info.el.appendChild(tag);
   }
 });
 calendar.render();
 
-function highlightDate(d){ 
-  document.querySelector(`[data-date='${d.toISOString().split('T')[0]}']`).classList.add("selected-range");
-}
-function highlightRange(start,end){
-  let cur=new Date(start);
-  while(cur<=end){
-    highlightDate(cur);
-    cur.setDate(cur.getDate()+1);
-  }
-}
-function clearSelection(){
-  document.querySelectorAll(".selected-range").forEach(e=>e.classList.remove("selected-range"));
-}
+function mark(d){document.querySelector(`[data-date='${d.toISOString().split('T')[0]}']`).style.background="#a5d6ff";}
+function markRange(s,e){let c=new Date(s);while(c<=e){mark(c);c.setDate(c.getDate()+1);}}
+function clearSel(){document.querySelectorAll("[data-date]").forEach(el=>el.style.background="");}
 
-function showForm(){
-  document.getElementById("bookingForm").style.display="block";
-  updateSummary();
-  generateGuestFields();
-}
+function showForm(){document.getElementById("bookingForm").style.display="block"; updateSummary();}
+function closeForm(){document.getElementById("bookingForm").style.display="none"; clearSel(); checkin=null; checkout=null;}
 
 function updateSummary(){
   let nights=(checkout-checkin)/(1000*60*60*24);
-  let total=nights*defaultPrice*parseInt(document.getElementById("rooms").value);
-  document.getElementById("summaryBox").innerHTML=
-  `<div><span class='highlight-date'>Check-in:</span> ${formatDate(checkin)}</div>
-   <div><span class='highlight-date'>Check-out:</span> ${formatDate(checkout)}</div>
-   <div>Notti | Nights: ${nights}</div>
-   <div><b>Totale: €${total}</b></div>`;
+  let total=nights*defaultPrice*parseInt(rooms.innerText);
+  summaryBox.innerHTML=`<b>Check-in:</b> ${checkin.toLocaleDateString()}<br>
+                        <b>Check-out:</b> ${checkout.toLocaleDateString()}<br>
+                        <b>Notti:</b> ${nights}<br>
+                        <b>Totale soggiorno:</b> €${total}`;
 }
-
-function formatDate(d){ return d.toLocaleDateString("it-IT"); }
 
 function changeRooms(v){
-  let r=parseInt(rooms.value)+v;
-  if(r<1) r=1;
-  if(r>3) r=3;
-  rooms.value=r;
-  changeGuests(0);
-  updateSummary();
+  let r=parseInt(rooms.innerText)+v;
+  if(r<1)r=1;if(r>3)r=3;rooms.innerText=r;changeGuests(0);updateSummary();
 }
 function changeGuests(v){
-  let max=rooms.value*2;
-  let g=parseInt(guests.value)+v;
-  if(g<1) g=1;
-  if(g>max) g=max;
-  guests.value=g;
-  generateGuestFields();
-}
-function generateGuestFields(){
-  let g=parseInt(guests.value);
-  let html="";
-  for(let i=1;i<=g;i++){
-    html+=`<label>Nome e Cognome Ospite ${i} | Guest ${i} Name *</label>
-           <input required>`;
-  }
-  guestNames.innerHTML=html;
+  let max=parseInt(rooms.innerText)*2;
+  let g=parseInt(guests.innerText)+v;
+  if(g<1)g=1;if(g>max)g=max;guests.innerText=g;
 }
 
 function sendBooking(){
-  let email=document.getElementById("email").value.trim();
-  let confirm=document.getElementById("confirmEmail").value.trim();
-  if(email!==confirm){ alert("Le email non coincidono"); return;}
-
-  let templateParams={
-    name: guestNames.querySelector("input").value,
-    checkin: formatDate(checkin),
-    checkout: formatDate(checkout),
-    guests: guests.value,
-    rooms: rooms.value,
-    phone: document.getElementById("prefix").value+" "+phone.value,
-    email: email
+  if(email.value!==confirmEmail.value){alert("Email non coincidono");return;}
+  let params={
+    firstName:firstName.value,
+    lastName:lastName.value,
+    checkin:checkin.toLocaleDateString(),
+    checkout:checkout.toLocaleDateString(),
+    guests:guests.innerText,
+    rooms:rooms.innerText,
+    phone:prefix.value+" "+phone.value,
+    email:email.value,
+    country:country.value
   };
-
-  emailjs.send("service_IlFicobnb","template_pr1fttu",templateParams)
-  .then(()=>{ alert("Richiesta inviata!"); location.reload(); },
-        (e)=>{ alert("Errore invio email"); console.log(e); });
+  emailjs.send("service_IlFicobnb","template_pr1fttu",params)
+  .then(()=>{alert("Richiesta inviata!");location.reload();},
+        ()=>alert("Errore invio"));
 }
+
+const prefixes=["+39 Italia","+44 UK","+1 USA","+33 Francia","+49 Germania","+34 Spagna","+41 Svizzera","+43 Austria","+31 Olanda","+32 Belgio"];
+prefixes.forEach(p=>prefix.add(new Option(p,p)));
+
+const countries=["Italia","Germany","France","USA","UK","Spain","Switzerland","Austria","Netherlands","Belgium"];
+countries.forEach(c=>country.add(new Option(c,c)));
 </script>
 </body>
 </html>
