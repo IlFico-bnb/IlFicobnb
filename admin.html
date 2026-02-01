@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Gestionale BnB</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background:#f5f7fa;}
+    #calendar { max-width: 1100px; margin: auto; }
+    .fc-daygrid-day { cursor:pointer; }
+    .fc-daygrid-day-number { font-weight:bold; }
+    .day-info { font-size:12px; margin-top:2px; color:#555; display:block; }
+    .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+    .modal-content { background: #fff; padding: 20px; border-radius: 8px; min-width: 300px; max-width: 450px; }
+    .close { float: right; cursor:pointer; }
+    .counter { display:flex; align-items:center; margin-top:5px; }
+    .counter button { width:30px; height:30px; margin:0 5px; }
+    .confirm-reset { margin-top:10px; display:none; background:#f8d7da; padding:10px; border-radius:5px; text-align:center; }
+    .confirm-reset button { margin:5px; }
+  </style>
+</head>
+<body>
+
+<h2>Calendario Gestionale BnB</h2>
+<div id="calendar"></div>
+
+<!-- MODALE -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">✖</span>
+    <h3 id="modal-date"></h3>
+    <div>
+      <label>Prezzo €/notte:</label>
+      <input type="number" id="price" min="0"><br><br>
+
+      <label>Camere disponibili:</label>
+      <div class="counter">
+        <button onclick="changeValue('rooms', -1)">-</button>
+        <span id="rooms-value"></span>
+        <button onclick="changeValue('rooms', 1)">+</button>
+      </div><br>
+
+      <label>Min. notti:</label>
+      <div class="counter">
+        <button onclick="changeValue('minnights', -1)">-</button>
+        <span id="minnights-value"></span>
+        <button onclick="changeValue('minnights', 1)">+</button>
+      </div><br>
+
+      <button onclick="saveChanges()">Salva modifiche</button>
+      <button style="background:#f8d7da; margin-top:10px;" onclick="showResetConfirm()">Reset Giorno</button>
+
+      <div id="reset-confirm" class="confirm-reset">
+        <p>Sei sicuro di voler resettare il giorno?</p>
+        <button onclick="resetDay()">Conferma</button>
+        <button onclick="hideResetConfirm()">Annulla</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let selectedDates = [];
+let calendar;
+let calendarData = [];
+
+// Valori di default per tutti i giorni
+const DEFAULT_DAY = {price:100, available_rooms:3, min_nights:1};
+
+async function fetchData(){
+  const response = await fetch('/api/calendar');
+  calendarData = await response.json();
+}
+
+// Restituisce dati giorno, oppure default se non presenti
+function getDayData(dateStr){
+  return calendarData.find(d=>d.date===dateStr) || {...DEFAULT_DAY, date:dateStr};
+}
+
+// ----------------- MODALE -----------------
+const modal = document.getElementById("modal");
+const resetDiv = document.getElementById("reset-confirm");
+
+function openModal(dates){
+  selectedDates = dates;
+
+  const nights = dates.length;
+  const datesStr = dates.join(", ");
+  document.getElementById("modal-date").innerText = datesStr + ` (${nights} notte${nights>1?"s":""})`;
+
+  const data = getDayData(dates[0]);
+  document.getElementById("price").value = data.price;
+  document.getElementById("rooms-value").innerText = data.available_rooms;
+  document.getElementById("minnights-value").innerText = data.min_nights;
+
+  modal.style.display="flex";
+}
+
+function closeModal(){ 
+  modal.style.display="none"; 
+  hideResetConfirm();
+}
+
+function changeValue(field, delta){
+  const el = document.getElementById(field==='rooms'?'rooms-value':'minnights-value');
+  let val = parseInt(el.innerText);
+  val += delta;
+  if(val<0) val=0;
+  el.innerText = val;
+}
+
+async function saveChanges(){
+  const price = parseInt(document.getElementById("price").value);
+  const rooms = parseInt(document.getElementById("rooms-value").innerText);
+  const minnights = parseInt(document.getElementById("minnights-value").innerText);
+
+  for(const date of selectedDates){
+    await fetch('/api/calendar',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ date, price, available_rooms: rooms, min_nights: minnights })
+    });
+  }
+  await fetchData();
+  renderCalendar();
+  closeModal();
+}
+
+// ----------------- RESET GIORNO -----------------
+function showResetConfirm(){ resetDiv.style.display="block"; }
+function hideResetConfirm(){ resetDiv.style.display="none"; }
+
+async function resetDay(){
+  for(const date of selectedDates){
+    await fetch('/api/calendar',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ ...DEFAULT_DAY, date })
+    });
+  }
+  await fetchData();
+  renderCalendar();
+  closeModal();
+}
+
+// ----------------- CALENDARIO -----------------
+function renderCalendar(){
+  if(calendar) calendar.destroy();
+
+  const events = calendarData.map(d=>({
+    title:`€${d.price} | Camere: ${d.available_rooms} | Min Notti: ${d.min_nights}`,
+    start:d.date,
+    color:d.available_rooms==0?"red":"#3788d8"
+  }));
+
+  calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView:'dayGridMonth',
+    events: events,
+    selectable:true,
+    dayCellContent: function(arg){
+      const day = getDayData(arg.date.toISOString().split('T')[0]);
+      return {html: `<b>${arg.dayNumberText}</b><span class="day-info">€${day.price} | Camere: ${day.available_rooms} | Min Notti: ${day.min_nights}</span>`};
+    },
+    select:function(info){
+      const dates = [];
+      let current = new Date(info.start.getFullYear(), info.start.getMonth(), info.start.getDate());
+      let end = new Date(info.end.getFullYear(), info.end.getMonth(), info.end.getDate());
+      end.setDate(end.getDate()-1);
+
+      while(current <= end){
+        const ds = current.getFullYear() + "-" +
+                   String(current.getMonth()+1).padStart(2,'0') + "-" +
+                   String(current.getDate()).padStart(2,'0');
+        dates.push(ds);
+        current.setDate(current.getDate()+1);
+      }
+
+      openModal(dates);
+    },
+    dateClick:function(info){
+      openModal([info.dateStr]);
+    }
+  });
+  calendar.render();
+}
+
+// ----------------- INIT -----------------
+fetchData().then(renderCalendar);
+</script>
+
+</body>
+</html>
