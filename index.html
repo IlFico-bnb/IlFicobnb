@@ -63,10 +63,41 @@ button.submitBtn {
 
 button.submitBtn.enabled {opacity:1;}
 .summary {background:#e3f2fd; padding:12px; border-radius:10px; margin-bottom:15px;}
+
+/* ADMIN SECRET BUTTON */
+#adminSecretBtn{
+  position:fixed;
+  top:0;
+  left:0;
+  width:60px;
+  height:60px;
+  z-index:2000;
+  background:transparent;
+  cursor:pointer;
+}
 </style>
 </head>
 
 <body>
+
+<!-- ADMIN SECRET BUTTON -->
+<div id="adminSecretBtn"></div>
+
+<!-- ADMIN LOGIN POPUP -->
+<div class="overlay" id="adminLoginOverlay">
+  <div class="popup">
+    <div class="closeBtn" onclick="closeAdminLogin()">✖</div>
+    <h2>Area Admin</h2>
+
+    <label>Email</label>
+    <input type="email" id="adminEmail">
+
+    <label>Password</label>
+    <input type="password" id="adminPassword">
+
+    <button class="submitBtn enabled" onclick="adminLogin()">Accedi</button>
+  </div>
+</div>
 
 <div id="calendarHint" class="calendar-hint">
 Seleziona data di check-in | Select check-in date
@@ -119,6 +150,15 @@ Seleziona data di check-in | Select check-in date
   </div>
 </div>
 
+<!-- ADMIN CALENDAR POPUP -->
+<div class="overlay" id="adminCalendarOverlay">
+  <div class="popup" style="max-width:900px;">
+    <div class="closeBtn" onclick="closeAdminCalendar()">✖</div>
+    <h2>Calendario Admin (Blocca/Sblocca Date)</h2>
+    <div id="adminCalendar"></div>
+  </div>
+</div>
+
 <script>
 emailjs.init("lTdk4iSo1q1QytRhq");
 
@@ -135,6 +175,9 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   validRange:{ start: today, end: maxDate },
   dateClick(info){
     let clicked=new Date(info.dateStr);
+
+    if(getBlockedDates().includes(info.dateStr)) return;
+
     if(!checkin || checkout){
       checkin=clicked; checkout=null; clearSel(); mark(clicked);
       hint.innerText="Seleziona data di check-out | Select check-out date";
@@ -213,7 +256,98 @@ function sendBooking(){
         ()=>alert("Errore invio"));
 }
 
-/* PREFIX + COUNTRY (150+) */
+/* ================= ADMIN AREA ================= */
+
+const ADMIN_EMAIL = "ilficolakeiseo@gmail.com";
+const ADMIN_PASS  = "cyb579wf&/TG47H@@&%TTgs";
+
+document.getElementById("adminSecretBtn").addEventListener("click", ()=>{
+  document.getElementById("adminLoginOverlay").style.display="flex";
+});
+
+function closeAdminLogin(){
+  document.getElementById("adminLoginOverlay").style.display="none";
+}
+
+function adminLogin(){
+  if(adminEmail.value === ADMIN_EMAIL && adminPassword.value === ADMIN_PASS){
+    closeAdminLogin();
+    openAdminCalendar();
+  } else {
+    alert("Credenziali errate");
+  }
+}
+
+function getBlockedDates(){
+  return JSON.parse(localStorage.getItem("blockedDates") || "[]");
+}
+
+function saveBlockedDates(dates){
+  localStorage.setItem("blockedDates", JSON.stringify(dates));
+  loadBlockedOnPublicCalendar();
+}
+
+function loadBlockedOnPublicCalendar(){
+  let blocked = getBlockedDates();
+  blocked.forEach(d=>{
+    let el = document.querySelector(`[data-date='${d}']`);
+    if(el){
+      el.style.background="#ff8a80";
+      el.style.pointerEvents="none";
+      el.style.opacity="0.6";
+    }
+  });
+}
+
+calendar.on('datesSet', loadBlockedOnPublicCalendar);
+
+let adminCalendar;
+
+function openAdminCalendar(){
+  document.getElementById("adminCalendarOverlay").style.display="flex";
+
+  if(adminCalendar) return;
+
+  adminCalendar = new FullCalendar.Calendar(document.getElementById('adminCalendar'), {
+    initialView:'dayGridMonth',
+    locale:'it',
+    selectable:true,
+    dateClick(info){
+      let date = info.dateStr;
+      let blocked = getBlockedDates();
+
+      if(blocked.includes(date)){
+        blocked = blocked.filter(d=>d!==date);
+      } else {
+        blocked.push(date);
+      }
+
+      saveBlockedDates(blocked);
+      renderAdminEvents();
+    }
+  });
+
+  adminCalendar.render();
+  renderAdminEvents();
+}
+
+function renderAdminEvents(){
+  adminCalendar.removeAllEvents();
+  getBlockedDates().forEach(d=>{
+    adminCalendar.addEvent({
+      start:d,
+      allDay:true,
+      display:'background',
+      backgroundColor:'#ff5252'
+    });
+  });
+}
+
+function closeAdminCalendar(){
+  document.getElementById("adminCalendarOverlay").style.display="none";
+}
+
+/* PREFIX + COUNTRY */
 const prefixList = [
 "+39 Italia","+44 UK","+1 USA","+33 Francia","+49 Germania","+34 Spagna","+41 Svizzera","+43 Austria","+32 Belgio","+31 Paesi Bassi",
 "+351 Portogallo","+353 Irlanda","+45 Danimarca","+46 Svezia","+47 Norvegia","+48 Polonia","+420 Repubblica Ceca","+421 Slovacchia",
@@ -231,7 +365,6 @@ const prefixList = [
 const countryList = prefixList.map(p=>p.split(" ").slice(1).join(" "));
 prefixList.forEach(p=>prefix.add(new Option(p,p)));
 countryList.forEach(c=>country.add(new Option(c,c)));
-
 </script>
 </body>
 </html>
