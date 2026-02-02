@@ -192,14 +192,19 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   headerToolbar:{start:'title',center:'',end:'today prev,next'},
   dayCellDidMount:function(info){
     const dateStr = info.date.toISOString().split('T')[0];
-    const d = bookingData[dateStr]||{};
-    let text = info.el.querySelector('.fc-daygrid-day-number');
-    if(text) text.textContent = info.date.getDate();
-    let extra = '';
-    if(d.price) extra += `\n€${d.price}`;
-    if(d.rooms!=null) extra += ` | ${d.rooms} cam`;
-    if(d.minNights) extra += ` | min ${d.minNights}`;
-    info.el.querySelector('.fc-daygrid-day-top').innerHTML += `<div style="font-size:10px;white-space:pre;">${extra}</div>`;
+    const d = bookingData[dateStr]||{price:100,rooms:3,minNights:1};
+    
+    const dayTop = info.el.querySelector('.fc-daygrid-day-top');
+    const dayNumber = info.el.querySelector('.fc-daygrid-day-number');
+    dayTop.innerHTML = '';
+    if(dayNumber) dayTop.appendChild(dayNumber);
+
+    const infoDiv = document.createElement('div');
+    infoDiv.style.fontSize='10px';
+    infoDiv.style.whiteSpace='pre-line';
+    infoDiv.innerHTML = `Prezzo: €${d.price}<br>Camere: ${d.rooms}<br>Min Notti: ${d.minNights}`;
+    dayTop.appendChild(infoDiv);
+
     if(d.rooms===0 || d.blocked) info.el.style.background="#ffcccb";
   },
   dateClick(info){
@@ -213,7 +218,6 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
       hint.innerText="Seleziona data di check-out | Select check-out date";
     } else {
       if(clicked<=checkin){checkin=clicked; clearSel(); mark(clicked); return;}
-      // verifica date intermedie
       let temp = new Date(checkin);
       let validCheckout = clicked;
       while(temp<=clicked){
@@ -317,16 +321,10 @@ function openAdminCalendar(){
     selectable:true,
     headerToolbar:{start:'title',center:'',end:'today prev,next'},
     dayCellDidMount:function(info){
-      const dateStr=info.date.toISOString().split('T')[0];
-      const d=bookingData[dateStr]||{price:100,rooms:3,minNights:1};
-      let text = info.el.querySelector('.fc-daygrid-day-number');
-      if(text) text.textContent = info.date.getDate();
-      info.el.querySelector('.fc-daygrid-day-top').innerHTML += `<div style="font-size:10px;white-space:pre;">€${d.price} | ${d.rooms} cam | min ${d.minNights}</div>`;
-      if(d.rooms===0 || d.blocked) info.el.style.background="#ffcccb";
-      if(selectedAdminDates.includes(dateStr)) info.el.style.background="#42a5f5";
+      renderAdminCell(info);
     },
-    dateClick(info){
-      const dateStr=info.dateStr;
+    dateClick:function(info){
+      const dateStr = info.dateStr;
       if(selectedAdminDates.includes(dateStr)){
         selectedAdminDates.splice(selectedAdminDates.indexOf(dateStr),1);
       }else selectedAdminDates.push(dateStr);
@@ -342,18 +340,34 @@ function openAdminCalendar(){
   adminCalendar.render();
 }
 
+function renderAdminCell(info){
+  const dateStr = info.date.toISOString().split('T')[0];
+  const d = bookingData[dateStr]||{price:100,rooms:3,minNights:1};
+  
+  const dayTop = info.el.querySelector('.fc-daygrid-day-top');
+  const dayNumber = info.el.querySelector('.fc-daygrid-day-number');
+  dayTop.innerHTML = '';
+  if(dayNumber) dayTop.appendChild(dayNumber);
+
+  const infoDiv = document.createElement('div');
+  infoDiv.style.fontSize='10px';
+  infoDiv.style.whiteSpace='pre-line';
+  infoDiv.innerHTML = `Prezzo: €${d.price}<br>Camere: ${d.rooms}<br>Min Notti: ${d.minNights}`;
+  dayTop.appendChild(infoDiv);
+
+  if(selectedAdminDates.includes(dateStr)){
+    info.el.style.background="#42a5f5";
+  }else if(d.rooms===0||d.blocked){
+    info.el.style.background="#ffcccb";
+  }else{
+    info.el.style.background="";
+  }
+}
+
 function renderAdminSelection(){
-  adminCalendar.getDate().toISOString();
   adminCalendar.getAllDayCellEls().forEach(el=>{
     const dateStr = el.dataset.date;
-    const d = bookingData[dateStr]||{price:100,rooms:3,minNights:1};
-    if(selectedAdminDates.includes(dateStr)){
-      el.style.background="#42a5f5";
-    }else if(d.rooms===0||d.blocked){
-      el.style.background="#ffcccb";
-    }else{
-      el.style.background="";
-    }
+    renderAdminCell({el:el,date:new Date(dateStr)});
   });
 }
 
@@ -384,7 +398,7 @@ function closeAdminCalendar(){
 
 /* Prefix + Country */
 const prefixList=["+39 Italia","+44 UK","+1 USA","+33 Francia","+49 Germania","+34 Spagna","+41 Svizzera","+43 Austria","+32 Belgio","+31 Paesi Bassi","+351 Portogallo","+353 Irlanda","+45 Danimarca","+46 Svezia","+47 Norvegia","+48 Polonia","+420 Repubblica Ceca","+421 Slovacchia","+36 Ungheria","+30 Grecia","+90 Turchia","+7 Russia","+380 Ucraina","+40 Romania","+359 Bulgaria","+385 Croazia","+386 Slovenia","+381 Serbia","+387 Bosnia","+382 Montenegro","+355 Albania","+373 Moldavia","+370 Lituania","+371 Lettonia","+372 Estonia","+354 Islanda","+375 Bielorussia","+995 Georgia","+374 Armenia","+994 Azerbaigian","+20 Egitto","+212 Marocco","+213 Algeria","+216 Tunisia","+27 Sudafrica","+234 Nigeria","+254 Kenya","+971 Emirati","+966 Arabia Saudita","+972 Israele","+91 India","+92 Pakistan","+880 Bangladesh","+94 Sri Lanka","+977 Nepal","+86 Cina","+81 Giappone","+82 Corea","+84 Vietnam","+66 Thailandia","+60 Malesia","+65 Singapore","+62 Indonesia","+63 Filippine","+61 Australia","+64 Nuova Zelanda","+55 Brasile","+54 Argentina","+56 Cile","+57 Colombia","+52 Messico","+51 Perù","+58 Venezuela","+1 Canada","+598 Uruguay","+595 Paraguay","+593 Ecuador","+591 Bolivia","+502 Guatemala","+503 El Salvador","+504 Honduras","+505 Nicaragua","+506 Costa Rica","+507 Panama","+53 Cuba","+1 Rep Dominicana","+1876 Giamaica","+974 Qatar","+965 Kuwait","+968 Oman","+973 Bahrain","+961 Libano","+962 Giordania","+98 Iran","+93 Afghanistan","+856 Laos","+855 Cambogia","+95 Myanmar","+976 Mongolia","+998 Uzbekistan","+993 Turkmenistan","+996 Kirghizistan","+992 Tagikistan"];
-const countryList=prefixList.map(p=>p.split(" ").slice(1).join(" "));
+const countryList = prefixList.map(p=>p.split(" ").slice(1).join(" "));
 prefixList.forEach(p=>prefix.add(new Option(p,p)));
 countryList.forEach(c=>country.add(new Option(c,c)));
 </script>
