@@ -18,6 +18,8 @@ body {font-family: Arial, sans-serif; margin:10px; background:#f5f7fb;}
   color:#1e88e5;
   margin-bottom:10px;
   min-height:22px;
+  position: relative;
+  z-index: 1;
 }
 
 .overlay {
@@ -77,6 +79,9 @@ button.submitBtn.enabled {opacity:1;}
   cursor:pointer;
   font-size:14px;
 }
+
+#adminEdit{display:none; margin-top:10px;}
+#adminEdit label{margin-top:5px;}
 </style>
 </head>
 
@@ -84,30 +89,29 @@ button.submitBtn.enabled {opacity:1;}
 
 <button id="adminBtn">Admin</button>
 
+<!-- Login Admin -->
 <div class="overlay" id="adminLoginOverlay">
   <div class="popup">
     <div class="closeBtn" onclick="closeAdminLogin()">✖</div>
     <h2>Area Admin</h2>
-
     <label>Email</label>
     <input type="email" id="adminEmail">
-
     <label>Password</label>
     <input type="password" id="adminPassword">
-
     <button class="submitBtn enabled" onclick="adminLogin()">Accedi</button>
   </div>
 </div>
 
+<!-- Calendario Booking -->
 <div id="calendarHint" class="calendar-hint">
 Seleziona data di check-in | Select check-in date
 </div>
 <div id="calendar"></div>
 
+<!-- Form Booking -->
 <div class="overlay" id="overlay">
   <div class="popup">
     <div class="closeBtn" onclick="closeForm()">✖</div>
-
     <h2>Dettagli richiesta di prenotazione | Booking Request Details</h2>
     <div class="summary" id="summaryBox"></div>
 
@@ -150,17 +154,20 @@ Seleziona data di check-in | Select check-in date
   </div>
 </div>
 
+<!-- Admin Calendar -->
 <div class="overlay" id="adminCalendarOverlay">
   <div class="popup" style="max-width:900px;">
     <div class="closeBtn" onclick="closeAdminCalendar()">✖</div>
     <h2>Calendario Admin (Modifica Prezzo e Camere)</h2>
     <div id="adminCalendar"></div>
 
-    <div id="adminEdit" style="margin-top:15px;">
+    <div id="adminEdit">
       <label>Prezzo per notte (€)</label>
       <input type="number" id="adminPrice" min="1">
       <label>Camere disponibili</label>
-      <input type="number" id="adminRooms" min="1" max="3">
+      <input type="number" id="adminRooms" min="0" max="3">
+      <label>Minimo Notti</label>
+      <input type="number" id="adminMinNights" min="1">
       <button class="submitBtn enabled" onclick="saveAdminChanges()">Salva modifiche</button>
     </div>
   </div>
@@ -182,11 +189,18 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   locale:'it',
   selectable:true,
   validRange:{ start: today, end: maxDate },
+  headerToolbar:{start:'title', center:'', end:'today prev,next'},
+  dayCellContent: function(arg){
+    const dateStr = arg.date.toISOString().split('T')[0];
+    let data = bookingData[dateStr];
+    if(data){
+      arg.dayNumberText += `\n€${data.price} | ${data.rooms} cam`;
+    }
+  },
   dateClick(info){
     const dateStr = info.dateStr;
-    const dayData = bookingData[dateStr]||{blocked:false};
-
-    if(dayData.blocked) return;
+    const dayData = bookingData[dateStr]||{blocked:false, rooms:3};
+    if(dayData.blocked || dayData.rooms===0) return;
 
     let clicked = new Date(dateStr);
     if(!checkin || checkout){
@@ -194,12 +208,13 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
       hint.innerText="Seleziona data di check-out | Select check-out date";
     } else {
       if(clicked<=checkin){checkin=clicked; clearSel(); mark(clicked); return;}
-      // Verifica blocchi intermedi
+      // controllo date bloccate o 0 camere
       let temp = new Date(checkin);
       let validCheckout = clicked;
       while(temp<=clicked){
         const ds = temp.toISOString().split('T')[0];
-        if(bookingData[ds] && bookingData[ds].blocked){
+        const d = bookingData[ds];
+        if(d && (d.blocked || d.rooms===0)){
           validCheckout = new Date(temp);
           validCheckout.setDate(validCheckout.getDate()-1);
           break;
@@ -214,10 +229,10 @@ const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), 
   },
   dayCellDidMount(info){
     const dateStr = info.date.toISOString().split('T')[0];
-    if(bookingData[dateStr] && bookingData[dateStr].blocked){
-      info.el.style.background="#ff8a80";
+    const d = bookingData[dateStr];
+    if(d && (d.blocked || d.rooms===0)){
+      info.el.style.background="#ffcccb";
       info.el.style.pointerEvents="none";
-      info.el.style.opacity=0.6;
     }
   }
 });
@@ -236,6 +251,7 @@ function showForm(){
 function closeForm(){document.getElementById("overlay").style.display="none"; clearSel(); checkin=null; checkout=null; hint.innerText="Seleziona data di check-in | Select check-in date";}
 
 function updateSummary(){
+  if(!checkin || !checkout) return;
   let nights=(checkout-checkin)/(1000*60*60*24);
   let r=parseInt(rooms.innerText);
   let total=0;
@@ -322,16 +338,37 @@ function openAdminCalendar(){
     initialView:'dayGridMonth',
     locale:'it',
     selectable:true,
+    headerToolbar:{start:'title', center:'', end:'today prev,next'},
+    dayCellContent: function(arg){
+      const dateStr = arg.date.toISOString().split('T')[0];
+      let data = bookingData[dateStr];
+      if(data){
+        arg.dayNumberText += `\n€${data.price} | ${data.rooms} cam | min ${data.minNights||1}`;
+      }
+    },
     dateClick(info){
       const dateStr = info.dateStr;
-      const idx = selectedAdminDates.indexOf(dateStr);
-      if(idx>=0) selectedAdminDates.splice(idx,1);
-      else selectedAdminDates.push(dateStr);
+      if(selectedAdminDates.includes(dateStr)){
+        selectedAdminDates.splice(selectedAdminDates.indexOf(dateStr),1);
+      }else selectedAdminDates.push(dateStr);
+
       renderAdminSelection();
-      if(selectedAdminDates.length===1){
-        const data = bookingData[dateStr]||{price:100, rooms:3, blocked:false};
-        adminPrice.value=data.price;
-        adminRooms.value=data.rooms;
+
+      if(selectedAdminDates.length>0){
+        document.getElementById("adminEdit").style.display="block";
+        const data = bookingData[selectedAdminDates[0]] || {price:100, rooms:3, minNights:1};
+        adminPrice.value = data.price;
+        adminRooms.value = data.rooms;
+        adminMinNights.value = data.minNights || 1;
+      }else{
+        document.getElementById("adminEdit").style.display="none";
+      }
+    },
+    dayCellDidMount(info){
+      const dateStr = info.date.toISOString().split('T')[0];
+      const d = bookingData[dateStr];
+      if(d && d.rooms===0){
+        info.el.style.background="#ffcccb";
       }
     }
   });
@@ -341,10 +378,10 @@ function openAdminCalendar(){
 }
 
 function renderAdminEvents(){
-  adminCalendar.removeAllEvents();
+  adminCalendar.getEvents().forEach(ev=>ev.remove());
   for(let d in bookingData){
-    if(bookingData[d].blocked){
-      adminCalendar.addEvent({start:d, allDay:true, display:'background', backgroundColor:'#ff5252'});
+    if(bookingData[d].blocked || bookingData[d].rooms===0){
+      adminCalendar.addEvent({start:d, allDay:true, display:'background', backgroundColor:'#ffcccb'});
     }
   }
   renderAdminSelection();
@@ -354,8 +391,8 @@ function renderAdminSelection(){
   adminCalendar.getEvents().forEach(ev=>{
     if(selectedAdminDates.includes(ev.startStr)){
       ev.setProp('backgroundColor','#42a5f5');
-    }else if(bookingData[ev.startStr] && bookingData[ev.startStr].blocked){
-      ev.setProp('backgroundColor','#ff5252');
+    }else if(bookingData[ev.startStr] && (bookingData[ev.startStr].blocked || bookingData[ev.startStr].rooms===0)){
+      ev.setProp('backgroundColor','#ffcccb');
     }
   });
 }
@@ -363,14 +400,18 @@ function renderAdminSelection(){
 function saveAdminChanges(){
   const price = parseFloat(adminPrice.value);
   const roomsVal = parseInt(adminRooms.value);
+  const minNights = parseInt(adminMinNights.value);
 
   selectedAdminDates.forEach(d=>{
     bookingData[d] = bookingData[d] || {price:100, rooms:3, blocked:false};
     if(!isNaN(price)) bookingData[d].price = price;
     if(!isNaN(roomsVal)) bookingData[d].rooms = roomsVal;
+    if(!isNaN(minNights)) bookingData[d].minNights = minNights;
   });
 
   localStorage.setItem("bookingData", JSON.stringify(bookingData));
+  selectedAdminDates=[];
+  document.getElementById("adminEdit").style.display="none";
   renderAdminEvents();
   calendar.render();
 }
@@ -378,6 +419,7 @@ function saveAdminChanges(){
 function closeAdminCalendar(){
   document.getElementById("adminCalendarOverlay").style.display="none";
   selectedAdminDates=[];
+  document.getElementById("adminEdit").style.display="none";
 }
 
 /* PREFIX + COUNTRY */
