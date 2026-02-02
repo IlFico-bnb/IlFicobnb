@@ -64,24 +64,27 @@ button.submitBtn {
 button.submitBtn.enabled {opacity:1;}
 .summary {background:#e3f2fd; padding:12px; border-radius:10px; margin-bottom:15px;}
 
-/* ADMIN SECRET BUTTON */
-#adminSecretBtn{
+/* ADMIN BUTTON VISIBLE */
+#adminBtn{
   position:fixed;
-  top:0;
-  left:0;
-  width:60px;
-  height:60px;
+  top:10px;
+  left:10px;
   z-index:2000;
-  background:transparent;
+  background:#1e88e5;
+  color:white;
+  border:none;
+  padding:8px 12px;
+  border-radius:8px;
   cursor:pointer;
+  font-size:14px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- ADMIN SECRET BUTTON -->
-<div id="adminSecretBtn"></div>
+<!-- ADMIN BUTTON VISIBLE -->
+<button id="adminBtn">Admin</button>
 
 <!-- ADMIN LOGIN POPUP -->
 <div class="overlay" id="adminLoginOverlay">
@@ -261,7 +264,7 @@ function sendBooking(){
 const ADMIN_EMAIL = "ilficolakeiseo@gmail.com";
 const ADMIN_PASS  = "cyb579wf&/TG47H@@&%TTgs";
 
-document.getElementById("adminSecretBtn").addEventListener("click", ()=>{
+document.getElementById("adminBtn").addEventListener("click", ()=>{
   document.getElementById("adminLoginOverlay").style.display="flex";
 });
 
